@@ -1,12 +1,8 @@
 package com.restapi.challenge;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import org.json.*;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -25,24 +21,42 @@ import java.util.Map;
 @ResponseBody
 class CustomerController {
 
+	public static final String dbUrl = "jdbc:sqlserver://localhost:1433;databaseName=CustomerDB;integratedSecurity=true";
 	public static final String insertCustomerPath = "insertCustomer.sql";
 	public static final String listAllCustomerPath = "selectAll.sql";
 	public static final String listByCityPath = "selectByCity.sql";
 	public static final String listByIdPath = "selectById.sql";
 
-	public String loadSQL(String filename) throws IOException {
-		InputStream fileStream = CustomerController.class.getClassLoader().getResourceAsStream(filename);
+	/**
+	 * loadSQL() initiates an InputStream on a SQL file specified by fileName. Method is generalized to load the SQL
+	 * file from whatever method calls it.
+	 *
+	 * @param fileName Name of SQL file used by the respective method that called loadSQL() (e.g. addStore calls loadSQL
+	 *                 with String addStorePath = "addStore.sql").
+	 * @return loadSQL() returns an appended String containing lines of SQL query code.
+	 */
+	public String loadSQL(String fileName) throws IOException {
+		InputStream fileStream = CustomerController.class.getClassLoader().getResourceAsStream(fileName);
 		assert fileStream != null;
 		return new String(fileStream.readAllBytes(), StandardCharsets.UTF_8);
 	}
 
+	/**
+	 * getConnection() grabs a connection to my SQLSERVER database, with Windows Authentication
+	 * eliminating the need for a username and password.
+	 *
+	 * @return getConnection() returns a Connection object received from JDBC DriverManager.
+	 */
 	public Connection getConnection() throws ClassNotFoundException, SQLException {
 		Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-		String connectionUrl = "jdbc:sqlserver://localhost:1433;databaseName=CustomerDB;integratedSecurity=true";
-
-		return DriverManager.getConnection(connectionUrl);
+		return DriverManager.getConnection(dbUrl);
 	}
 
+	/**
+	 *
+	 * @param city String specifying city for SQL query to search for
+	 * @return
+	 */
 	String listByCity(String city){
 		List<JSONObject> jsonObjects = new ArrayList<>();
 		try (Connection con = getConnection()) {
@@ -97,8 +111,7 @@ class CustomerController {
 
 	@RequestMapping(value = "/customers", method = RequestMethod.POST, consumes = "application/json", produces = "application/json")
 	@ResponseBody
-	String newCustomer(@RequestBody Map<String, Object> inputData) throws SQLException, ClassNotFoundException {
-		JSONObject jsonObject = new JSONObject(inputData);
+	String newCustomer(@RequestBody Map<String, Object> inputData) throws ClassNotFoundException {
 		try (Connection con = getConnection()){
 			PreparedStatement stmt = con.prepareStatement(loadSQL(insertCustomerPath));
 
@@ -161,35 +174,4 @@ class CustomerController {
 			return new ResponseEntity<>(listByCity(city), HttpStatus.OK);
 		}
 	}
-//
-//	@RequestMapping(value = "/customers")
-//	@ResponseBody
-//	ResponseEntity<Object> listAll() {
-//		List<JSONObject> jsonObjects = new ArrayList<>();
-//		try (Connection con = getConnection(); Statement stmt = con.createStatement();) {
-//			String SQL = "SELECT * FROM dbo.Customers";
-//
-//			ResultSet rs = stmt.executeQuery(SQL);
-//			int i = 0;
-//			while (rs.next()) {
-//				JSONObject newObject = new JSONObject();
-//				i++;
-//
-//				newObject.put("Customer ID", i);
-//				newObject.put("First name", rs.getString("FirstName"));
-//				newObject.put("Last name", rs.getString("LastName"));
-//				newObject.put("Role", "Baller");
-//
-//				jsonObjects.add(newObject);
-//				System.out.println(rs.getString("FirstName") + " " + rs.getString("LastName"));
-//			}
-//		} catch (SQLException | ClassNotFoundException e) {
-//			e.printStackTrace();
-//		}
-//		return new ResponseEntity<>(jsonObjects.toString(), HttpStatus.OK);
-//	}
-//	@DeleteMapping("/customers/{id}")
-//	void deleteCustomer(@PathVariable Long id) {
-//		repository.deleteById(id);
-//	}
 }
